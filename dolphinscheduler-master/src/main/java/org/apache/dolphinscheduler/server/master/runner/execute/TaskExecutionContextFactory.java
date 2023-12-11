@@ -35,6 +35,7 @@ import static org.apache.dolphinscheduler.plugin.task.api.utils.DataQualityConst
 import static org.apache.dolphinscheduler.plugin.task.api.utils.DataQualityConstants.TARGET_CONNECTOR_TYPE;
 import static org.apache.dolphinscheduler.plugin.task.api.utils.DataQualityConstants.TARGET_DATASOURCE_ID;
 
+import com.google.gson.JsonObject;
 import org.apache.dolphinscheduler.common.constants.Constants;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.common.utils.PropertyUtils;
@@ -261,8 +262,8 @@ public class TaskExecutionContextFactory {
         dataQualityTaskExecutionContext.setHdfsPath(
                 PropertyUtils.getString(Constants.FS_DEFAULT_FS)
                         + PropertyUtils.getString(
-                                Constants.DATA_QUALITY_ERROR_OUTPUT_PATH,
-                                "/user/" + tenantCode + "/data_quality_error_data"));
+                        Constants.DATA_QUALITY_ERROR_OUTPUT_PATH,
+                        "/user/" + tenantCode + "/data_quality_error_data"));
 
         setSourceConfig(dataQualityTaskExecutionContext, config);
         setTargetConfig(dataQualityTaskExecutionContext, config);
@@ -423,23 +424,45 @@ public class TaskExecutionContextFactory {
         dataSource.setUserName(hikariDataSource.getUsername());
         JdbcInfo jdbcInfo = JdbcUrlParser.getJdbcInfo(hikariDataSource.getJdbcUrl());
         if (jdbcInfo != null) {
-            Properties properties = new Properties();
-            properties.setProperty(USER, hikariDataSource.getUsername());
-            properties.setProperty(PASSWORD, hikariDataSource.getPassword());
-            properties.setProperty(DATABASE, jdbcInfo.getDatabase());
-            properties.setProperty(ADDRESS, jdbcInfo.getAddress());
-            properties.setProperty(OTHER, jdbcInfo.getParams());
-            properties.setProperty(JDBC_URL, jdbcInfo.getAddress() + SINGLE_SLASH + jdbcInfo.getDatabase());
+            JsonObject properties = new JsonObject();
+            properties.addProperty(USER, hikariDataSource.getUsername());
+            properties.addProperty(PASSWORD, hikariDataSource.getPassword());
+            properties.addProperty(DATABASE, jdbcInfo.getDatabase());
+            properties.addProperty(ADDRESS, jdbcInfo.getAddress());
+            JsonObject otherObject = convertToJsonObject(jdbcInfo.getParams());
+            properties.add(OTHER, otherObject);
+            properties.addProperty(JDBC_URL, jdbcInfo.getAddress() + SINGLE_SLASH + jdbcInfo.getDatabase());
             dataSource.setType(DbType.of(JdbcUrlParser.getDbType(jdbcInfo.getDriverName()).getCode()));
-            dataSource.setConnectionParams(JSONUtils.toJsonString(properties));
+            dataSource.setConnectionParams(properties.toString());
         }
 
         return dataSource;
     }
 
+
+    private static JsonObject convertToJsonObject(String input) {
+        // 创建一个新的 JsonObject
+        JsonObject jsonObject = new JsonObject();
+
+        // 将查询字符串分割成键值对
+        String[] pairs = input.split("&");
+
+        // 将键值对添加到 JsonObject
+        for (String pair : pairs) {
+            String[] keyValue = pair.split("=");
+            if (keyValue.length == 2) {
+                String key = keyValue[0];
+                String value = keyValue[1];
+                jsonObject.addProperty(key, value);
+            }
+        }
+        return jsonObject;
+    }
+
     /**
      * The StatisticsValueWriterConfig will be used in DataQualityApplication that
      * writes the statistics value into dolphin scheduler datasource
+     *
      * @param dataQualityTaskExecutionContext
      */
     private void setStatisticsValueWriterConfig(DataQualityTaskExecutionContext dataQualityTaskExecutionContext) {

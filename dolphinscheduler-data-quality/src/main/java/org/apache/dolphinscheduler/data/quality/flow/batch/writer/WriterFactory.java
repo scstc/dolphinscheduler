@@ -71,7 +71,8 @@ public class WriterFactory {
                 case LOCAL_FILE:
                     return new LocalFileWriter(config);
                 case HDFS_FILE:
-                    return new HdfsFileWriter(config);
+                    return null;
+                //return new HdfsFileWriter(config);
                 default:
                     throw new DataQualityException("writer type " + writerType + " is not supported!");
             }
